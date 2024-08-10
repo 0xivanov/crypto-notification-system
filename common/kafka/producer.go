@@ -19,7 +19,6 @@ func NewProducer(brokers []string, logger *log.Logger) *Producer {
 	config := sarama.NewConfig()
 	config.Producer.Return.Successes = true
 
-	// TODO make it async
 	producer, err := sarama.NewSyncProducer(brokers, config)
 	if err != nil {
 		logger.Fatalf("[ERROR] Failed to start Kafka producer: %v", err)

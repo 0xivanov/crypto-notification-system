@@ -11,10 +11,10 @@ import (
 
 type UserSubscribeHandler struct {
 	logger       *log.Logger
-	krakenClient *kraken.WebSocketClient
+	krakenClient kraken.KrakenClientInterface
 }
 
-func NewUserSubscribeHandler(logger *log.Logger, krakenClient *kraken.WebSocketClient) *UserSubscribeHandler {
+func NewUserSubscribeHandler(logger *log.Logger, krakenClient kraken.KrakenClientInterface) *UserSubscribeHandler {
 	return &UserSubscribeHandler{
 		logger:       logger,
 		krakenClient: krakenClient,

@@ -11,6 +11,14 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+type MongoInterface interface {
+	GetUsersForTicker(symbol string) ([]model.User, error)
+	AddUser(user model.User) error
+	RemoveUser(userID string) error
+	UpdateUser(userID string, updatedUser model.User) error
+	GetUserByID(userID string) (*model.User, error)
+}
+
 type Mongo struct {
 	client     *mongo.Client
 	dbName     string

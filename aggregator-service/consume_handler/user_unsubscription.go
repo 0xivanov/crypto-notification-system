@@ -11,10 +11,10 @@ import (
 
 type UserUnsubscribeHandler struct {
 	logger       *log.Logger
-	krakenClient *kraken.WebSocketClient
+	krakenClient kraken.KrakenClientInterface
 }
 
-func NewUserUnsubscribeHandler(logger *log.Logger, krakenClient *kraken.WebSocketClient) *UserUnsubscribeHandler {
+func NewUserUnsubscribeHandler(logger *log.Logger, krakenClient kraken.KrakenClientInterface) *UserUnsubscribeHandler {
 	return &UserUnsubscribeHandler{
 		logger:       logger,
 		krakenClient: krakenClient,

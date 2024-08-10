@@ -77,7 +77,7 @@ func (r *RedisCache) GetAllTickers() ([]string, error) {
 		err    error
 	)
 
-	// Iterate over the keys using SCAN with a match pattern for tickers.
+	// iterate over the keys using SCAN with a match pattern for tickers.
 	for {
 		var scannedKeys []string
 		scannedKeys, cursor, err = r.client.Scan(ctx, cursor, "*", 0).Result()
@@ -88,7 +88,7 @@ func (r *RedisCache) GetAllTickers() ([]string, error) {
 
 		keys = append(keys, scannedKeys...)
 
-		// If cursor is zero, the iteration is complete.
+		// if cursor is zero, the iteration is complete.
 		if cursor == 0 {
 			break
 		}

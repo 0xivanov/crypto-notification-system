@@ -3,7 +3,6 @@ package kraken
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log"
 
 	"github.com/0xivanov/crypto-notification-system/aggregator-service/db"
@@ -11,6 +10,11 @@ import (
 	"github.com/0xivanov/crypto-notification-system/common/model"
 	"github.com/gorilla/websocket"
 )
+
+type KrakenClientInterface interface {
+	Subscribe(userID, ticker string) error
+	Unsubscribe(userID, ticker string) error
+}
 
 type WebSocketClient struct {
 	socket   *websocket.Conn
@@ -91,7 +95,6 @@ func (c *WebSocketClient) Subscribe(userID, ticker string) error {
 func (c *WebSocketClient) Unsubscribe(userID, ticker string) error {
 	// if the user is not subscribed - return
 	userIDs, count, _ := c.redis.GetUsersForTicker(ticker)
-	fmt.Println(userIDs)
 	isSubbed := false
 	for _, id := range userIDs {
 		if id == userID {

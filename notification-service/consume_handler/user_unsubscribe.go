@@ -10,11 +10,11 @@ import (
 )
 
 type UserUnsubscribeHandler struct {
-	db     *db.Mongo
+	db     db.MongoInterface
 	logger *log.Logger
 }
 
-func NewUserUnsubscribeHandler(db *db.Mongo, logger *log.Logger) *UserUnsubscribeHandler {
+func NewUserUnsubscribeHandler(db db.MongoInterface, logger *log.Logger) *UserUnsubscribeHandler {
 	return &UserUnsubscribeHandler{
 		db:     db,
 		logger: logger,
@@ -37,6 +37,8 @@ func (h *UserUnsubscribeHandler) ConsumeClaim(session sarama.ConsumerGroupSessio
 	return nil
 }
 
+// handleMessage handles a message from the unsubscription topic
+// and deletes the user from the db if
 func (h *UserUnsubscribeHandler) handleMessage(message []byte) {
 	var user model.User
 	if err := json.Unmarshal(message, &user); err != nil {
@@ -44,11 +46,30 @@ func (h *UserUnsubscribeHandler) handleMessage(message []byte) {
 		return
 	}
 
-	if _, err := h.db.GetUserByID(user.UserID); err != nil {
+	// get the user
+	dbUser, err := h.db.GetUserByID(user.UserID)
+	if err != nil {
 		return
 	}
-	if err := h.db.RemoveUser(user.UserID); err != nil {
+
+	// remove the tickers from the user's preferences
+	for _, ticker := range user.Tickers {
+		dbUser.Tickers = removeTicker(ticker.Symbol, dbUser.Tickers)
+	}
+	user.Tickers = dbUser.Tickers
+
+	if err := h.db.UpdateUser(user.UserID, user); err != nil {
 		return
 	}
-	log.Printf("[INFO] Unsubscribed user %s", user.UserID)
+	log.Printf("[INFO] Unsubscribed user's %s tickers %v", user.UserID, user.Tickers)
+}
+
+func removeTicker(ticker string, tickers []model.TickerSettings) []model.TickerSettings {
+
+	for i, t := range tickers {
+		if t.Symbol == ticker {
+			tickers = append(tickers[:i], tickers[i+1:]...)
+		}
+	}
+	return tickers
 }

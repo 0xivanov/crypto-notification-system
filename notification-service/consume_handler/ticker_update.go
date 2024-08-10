@@ -41,6 +41,8 @@ func (h *TickerUpdateHandler) ConsumeClaim(session sarama.ConsumerGroupSession, 
 	return nil
 }
 
+// handleMessage handles a message from the ticker update topic
+// and sends notifications to users if the ticker data reaches the threshold
 func (h *TickerUpdateHandler) handleMessage(message []byte) {
 	var tickerUpdate model.Ticker
 	if err := json.Unmarshal(message, &tickerUpdate); err != nil {
@@ -55,10 +57,14 @@ func (h *TickerUpdateHandler) handleMessage(message []byte) {
 			continue
 		}
 
+		// loop through users
 		for _, user := range users {
+			// if does not reach threshold, skip
 			if !isReachingThreshold(user, tickerData) {
 				continue
 			}
+
+			// send notification through all notifiers
 			for _, notifier := range h.notifiers {
 				err := notifier.SendNotification(util.FormatMessage(tickerData), user.NotificationOptions)
 				if err != nil {

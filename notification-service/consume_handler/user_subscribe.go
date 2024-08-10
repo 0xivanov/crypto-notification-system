@@ -10,11 +10,11 @@ import (
 )
 
 type UserSubscribeHandler struct {
-	db     *db.Mongo
+	db     db.MongoInterface
 	logger *log.Logger
 }
 
-func NewUserSubscribeHandler(db *db.Mongo, logger *log.Logger) *UserSubscribeHandler {
+func NewUserSubscribeHandler(db db.MongoInterface, logger *log.Logger) *UserSubscribeHandler {
 	return &UserSubscribeHandler{
 		db:     db,
 		logger: logger,
@@ -37,18 +37,22 @@ func (h *UserSubscribeHandler) ConsumeClaim(session sarama.ConsumerGroupSession,
 	return nil
 }
 
+// handleMessage handles a message from the subscription topic
+// and add the user to the db
 func (h *UserSubscribeHandler) handleMessage(message []byte) {
 	var user model.User
 	if err := json.Unmarshal(message, &user); err != nil {
 		h.logger.Printf("[ERROR] Failed to unmarshal message: %v", err)
 		return
 	}
+
+	// if user does not exist, add user
 	if _, err := h.db.GetUserByID(user.UserID); err != nil {
 		if err := h.db.AddUser(user); err != nil {
 			return
 		}
 		log.Printf("[INFO] Subscribed user %s", user.UserID)
-	} else {
+	} else { // else update user
 		if err := h.db.UpdateUser(user.UserID, user); err != nil {
 			return
 		}
