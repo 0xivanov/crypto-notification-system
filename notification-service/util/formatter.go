@@ -3,7 +3,7 @@ package util
 import (
 	"fmt"
 
-	"github.com/0xivanov/crypto-notification-system/notification-service/model"
+	"github.com/0xivanov/crypto-notification-system/common/model"
 )
 
 func FormatMessage(tickerData model.TickerData) string {

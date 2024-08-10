@@ -5,8 +5,11 @@ import (
 	"os"
 	"strings"
 
-	"github.com/0xivanov/crypto-notification-system/aggregator-service/kafka"
+	handler "github.com/0xivanov/crypto-notification-system/aggregator-service/consume_handler"
+	"github.com/0xivanov/crypto-notification-system/aggregator-service/db"
 	"github.com/0xivanov/crypto-notification-system/aggregator-service/kraken"
+	"github.com/0xivanov/crypto-notification-system/common/kafka"
+	"github.com/redis/go-redis/v9"
 )
 
 func main() {
@@ -17,10 +20,16 @@ func main() {
 	}
 	brokers := strings.Split(brokersString, ",")
 
-	// get topic
-	topic := os.Getenv("TOPIC")
-	if topic == "" {
-		topic = "ticker"
+	// get redis host
+	redisHost := os.Getenv("REDIS_HOST")
+	if redisHost == "" {
+		redisHost = "localhost:6379"
+	}
+
+	// get redis password
+	redisPassword := os.Getenv("REDIS_PASSWORD")
+	if redisPassword == "" {
+		redisPassword = ""
 	}
 
 	// get ws url
@@ -35,11 +44,26 @@ func main() {
 	// create producer
 	producer := kafka.NewProducer(brokers, logger)
 
-	// create consumer TODO
+	// create redis cache
+	redisDb := redis.NewClient(&redis.Options{
+		Addr:     redisHost,
+		Password: redisPassword,
+		DB:       0,
+	})
+	redisCache := db.NewRedisCache(redisDb, logger)
 
-	krakenClient := kraken.NewWebSocketClient(logger, wsUrl, topic)
-	krakenClient.Subscribe("BTC/USD")
-	krakenClient.Subscribe("ETH/USD")
-	krakenClient.Listen(producer)
+	// create kraken client
+	krakenClient := kraken.NewWebSocketClient(logger, producer, redisCache, wsUrl)
 
+	// create subscribe consumer
+	userSubscribeHandler := handler.NewUserSubscribeHandler(logger, krakenClient)
+	subscribeConsumer := kafka.NewConsumer(brokers, "subscription", "aggregator-service", logger)
+	go subscribeConsumer.StartConsumer(userSubscribeHandler)
+
+	// create usubscribe consumer
+	userUnsubscribeHandler := handler.NewUserUnsubscribeHandler(logger, krakenClient)
+	unsubscribeConsumer := kafka.NewConsumer(brokers, "unsubscription", "aggregator-service", logger)
+	go unsubscribeConsumer.StartConsumer(userUnsubscribeHandler)
+
+	krakenClient.Listen()
 }

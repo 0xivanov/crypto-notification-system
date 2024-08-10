@@ -1,11 +1,11 @@
-package handler
+package consume_handler
 
 import (
 	"encoding/json"
 	"log"
 
+	"github.com/0xivanov/crypto-notification-system/common/model"
 	"github.com/0xivanov/crypto-notification-system/notification-service/db"
-	"github.com/0xivanov/crypto-notification-system/notification-service/model"
 	"github.com/0xivanov/crypto-notification-system/notification-service/notification"
 	"github.com/0xivanov/crypto-notification-system/notification-service/util"
 	"github.com/IBM/sarama"
@@ -56,12 +56,24 @@ func (h *TickerUpdateHandler) handleMessage(message []byte) {
 		}
 
 		for _, user := range users {
+			if !isReachingThreshold(user, tickerData) {
+				continue
+			}
 			for _, notifier := range h.notifiers {
 				err := notifier.SendNotification(util.FormatMessage(tickerData), user.NotificationOptions)
 				if err != nil {
-					h.logger.Printf("[ERROR] Failed to send notification to user %s: %v", user, err)
+					h.logger.Printf("[ERROR] Failed to send notification to user %s: %v", user.UserID, err)
 				}
 			}
 		}
 	}
+}
+
+func isReachingThreshold(user model.User, tickerData model.TickerData) bool {
+	for _, ticker := range user.Tickers {
+		if ticker.ChangeThreshold <= tickerData.ChangePct {
+			return true
+		}
+	}
+	return false
 }

@@ -6,6 +6,10 @@ import (
 	"github.com/IBM/sarama"
 )
 
+type ProducerInterface interface {
+	SendMessage(topic, message string) error
+}
+
 type Producer struct {
 	syncProducer sarama.SyncProducer
 	logger       *log.Logger
@@ -15,6 +19,7 @@ func NewProducer(brokers []string, logger *log.Logger) *Producer {
 	config := sarama.NewConfig()
 	config.Producer.Return.Successes = true
 
+	// TODO make it async
 	producer, err := sarama.NewSyncProducer(brokers, config)
 	if err != nil {
 		logger.Fatalf("[ERROR] Failed to start Kafka producer: %v", err)
@@ -32,6 +37,5 @@ func (p *Producer) SendMessage(topic, message string) error {
 		Value: sarama.StringEncoder(message),
 	}
 	_, _, err := p.syncProducer.SendMessage(msg)
-	p.logger.Printf("[INFO] Message {%s} sent to topic {%s}:", message, topic)
 	return err
 }

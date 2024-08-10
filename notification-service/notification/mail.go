@@ -3,7 +3,7 @@ package notification
 import (
 	"log"
 
-	"github.com/0xivanov/crypto-notification-system/notification-service/model"
+	"github.com/0xivanov/crypto-notification-system/common/model"
 	"github.com/wneessen/go-mail"
 )
 
@@ -39,13 +39,15 @@ func (n *MailNotifier) SendNotification(message string, options model.Notificati
 	}
 	m := mail.NewMsg()
 	if err := m.From(n.from); err != nil {
-		n.logger.Fatalf("[ERROR] Failed to set From address: %s", err)
+		n.logger.Printf("[ERROR] Failed to set From address: %s", err)
+		return err
 	}
 	if err := m.To(options.Email); err != nil {
-		n.logger.Fatalf("[ERROR] Failed to set To address: %s", err)
+		n.logger.Printf("[ERROR] Failed to set To address: %s", err)
+		return err
 	}
 
-	m.Subject("test")
+	m.Subject("Crypto updates")
 	m.SetBodyString(mail.TypeTextPlain, message)
 	if err := n.client.DialAndSend(m); err != nil {
 		n.logger.Fatalf("[ERROR] Failed to send mail: %s", err)

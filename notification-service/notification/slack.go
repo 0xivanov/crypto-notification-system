@@ -3,7 +3,7 @@ package notification
 import (
 	"log"
 
-	"github.com/0xivanov/crypto-notification-system/notification-service/model"
+	"github.com/0xivanov/crypto-notification-system/common/model"
 	"github.com/slack-go/slack"
 )
 

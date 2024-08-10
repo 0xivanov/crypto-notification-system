@@ -18,5 +18,6 @@ func NewSMSNotifier(apiEndpoint, apiKey string, logger *log.Logger) *SMSNotifier
 
 func (s *SMSNotifier) SendMessage(destination string, message string) error {
 	// TODO
+	// Pretend this has send the message :D
 	return nil
 }

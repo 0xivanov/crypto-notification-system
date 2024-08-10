@@ -2,59 +2,130 @@ package kraken
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"log"
 
-	"github.com/0xivanov/crypto-notification-system/aggregator-service/kafka"
-	"github.com/0xivanov/crypto-notification-system/aggregator-service/model"
+	"github.com/0xivanov/crypto-notification-system/aggregator-service/db"
+	"github.com/0xivanov/crypto-notification-system/common/kafka"
+	"github.com/0xivanov/crypto-notification-system/common/model"
 	"github.com/gorilla/websocket"
 )
 
-var subscriptionMessage = model.WebSocketMessage{
-	Method: "subscribe",
-	Params: model.Params{
-		Channel: "ticker",
-		Symbols: []string{},
-	},
-}
-
-var unsubscriptionMessage = model.WebSocketMessage{
-	Method: "unsubscribe",
-	Params: model.Params{
-		Channel: "ticker",
-		Symbols: []string{},
-	},
-}
-
 type WebSocketClient struct {
-	socket     *websocket.Conn
-	logger     *log.Logger
-	kafkaTopic string
+	socket   *websocket.Conn
+	logger   *log.Logger
+	producer kafka.ProducerInterface
+	redis    *db.RedisCache
 }
 
-func NewWebSocketClient(logger *log.Logger, wsUrl, kafkaTopic string) *WebSocketClient {
+func NewWebSocketClient(logger *log.Logger, producer kafka.ProducerInterface, redis *db.RedisCache, wsUrl string) *WebSocketClient {
 	conn, _, err := websocket.DefaultDialer.Dial(wsUrl, nil)
 	if err != nil {
 		logger.Fatalf("[ERROR] Failed to connect to web socket: %v", err)
 	}
 
+	// get all tickers from Redis and subscribe to them
+	tickers, err := redis.GetAllTickers()
+	if err != nil {
+		logger.Fatalf("[ERROR] Failed to get tickers from Redis: %v", err)
+	}
+
+	// subscribe to all tickers that exist in redis
+	var subscriptionMessage = model.WebSocketMessage{
+		Method: "subscribe",
+		Params: model.Params{
+			Channel: "ticker",
+			Symbols: []string{},
+		},
+	}
+	subscriptionMessage.Params.Symbols = append(subscriptionMessage.Params.Symbols, tickers...)
+	err = conn.WriteJSON(subscriptionMessage)
+	if err != nil {
+		logger.Fatalf("[ERROR] Failed to send initial subscription message: %v", err)
+	}
+
 	return &WebSocketClient{
-		socket:     conn,
-		logger:     logger,
-		kafkaTopic: kafkaTopic,
+		socket:   conn,
+		logger:   logger,
+		producer: producer,
+		redis:    redis,
 	}
 }
 
-func (c *WebSocketClient) Subscribe(ticker string) error {
-	subscriptionMessage.Params.Symbols = append(subscriptionMessage.Params.Symbols, ticker)
-	return c.socket.WriteJSON(subscriptionMessage)
+// Subscribe adds a user to the list of subscribers for a ticker
+// and sends a subscription message if it's the first subscriber
+func (c *WebSocketClient) Subscribe(userID, ticker string) error {
+	// if the user is already subscribed - return
+	userIDs, count, _ := c.redis.GetUsersForTicker(ticker)
+	for _, id := range userIDs {
+		if id == userID {
+			return errors.New("user is already subscribed")
+		}
+	}
+
+	// remove the user for this ticker
+	err := c.redis.AddUserForTicker(ticker, userID)
+	if err != nil {
+		return err
+	}
+
+	// send WebSocket subscription message if it's the first subscriber
+	var subscriptionMessage = model.WebSocketMessage{
+		Method: "subscribe",
+		Params: model.Params{
+			Channel: "ticker",
+			Symbols: []string{""},
+		},
+	}
+	if count == 0 {
+		subscriptionMessage.Params.Symbols[0] = ticker
+		return c.socket.WriteJSON(subscriptionMessage)
+	}
+
+	return nil
 }
 
-func (c *WebSocketClient) Unsubscribe(ticker string) error {
-	subscriptionMessage.Params.Symbols = append(subscriptionMessage.Params.Symbols, ticker)
-	return c.socket.WriteJSON(unsubscriptionMessage)
+// Unsubscribe removes a user from the list of subscribers for a ticker
+// and sends an unsubscription message if there are no more subscribers
+func (c *WebSocketClient) Unsubscribe(userID, ticker string) error {
+	// if the user is not subscribed - return
+	userIDs, count, _ := c.redis.GetUsersForTicker(ticker)
+	fmt.Println(userIDs)
+	isSubbed := false
+	for _, id := range userIDs {
+		if id == userID {
+			isSubbed = true
+		}
+	}
+	if !isSubbed {
+		return errors.New("user is not subscribed")
+	}
+
+	// remove the user for this ticker
+	err := c.redis.RemoveUserForTicker(ticker, userID)
+	if err != nil {
+		return err
+	}
+
+	// send WebSocket unsubscription message if there are no more subscribers
+	var unsubscriptionMessage = model.WebSocketMessage{
+		Method: "unsubscribe",
+		Params: model.Params{
+			Channel: "ticker",
+			Symbols: []string{""},
+		},
+	}
+	if count == 1 {
+		unsubscriptionMessage.Params.Symbols[0] = ticker
+		return c.socket.WriteJSON(unsubscriptionMessage)
+	}
+
+	return nil
 }
 
-func (c *WebSocketClient) Listen(producer *kafka.Producer) {
+// Listen listens for incoming messages from the WebSocket connection
+func (c *WebSocketClient) Listen() {
 	for {
 		_, message, err := c.socket.ReadMessage()
 		if err != nil {
@@ -66,12 +137,16 @@ func (c *WebSocketClient) Listen(producer *kafka.Producer) {
 			c.logger.Printf("[ERROR] Failed to unmarshal ticker message: %v", err)
 			continue
 		}
+		if tickerUpdate.Channel == "status" || tickerUpdate.Channel == "heartbeat" {
+			continue
+		}
 		for _, tickerData := range tickerUpdate.Data {
 			c.logger.Printf("[INFO]: Received ticker update: %s - Last Price: %f", tickerData.Symbol, tickerData.Last)
-			err := producer.SendMessage(c.kafkaTopic, string(message))
+			err := c.producer.SendMessage("ticker", string(message))
 			if err != nil {
-				log.Println(err)
+				c.logger.Printf("[ERROR] Failed to send message to Kafka: %v", err)
 			}
+			c.logger.Printf("[INFO] Ticker symbol {%s} update sent to topic {%s}:", tickerData.Symbol, "ticker")
 		}
 	}
 }
