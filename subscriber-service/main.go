@@ -28,7 +28,7 @@ func main() {
 		port = "8080"
 	}
 	// create logger
-	logger := log.New(os.Stdout, "notification-service", log.LstdFlags)
+	logger := log.New(os.Stdout, "subscriber-service", log.LstdFlags)
 
 	// create producer
 	producer := kafka.NewProducer(brokers, logger)

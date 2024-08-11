@@ -21,7 +21,7 @@ func NewProducer(brokers []string, logger *log.Logger) *Producer {
 
 	producer, err := sarama.NewSyncProducer(brokers, config)
 	if err != nil {
-		logger.Fatalf("[ERROR] Failed to start Kafka producer: %v", err)
+		logger.Fatalf("[ERROR] Failed to start Kafka producer, connecting to broker %v", brokers)
 	}
 
 	return &Producer{

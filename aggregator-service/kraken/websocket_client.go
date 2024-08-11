@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
+	"time"
 
 	"github.com/0xivanov/crypto-notification-system/aggregator-service/db"
 	"github.com/0xivanov/crypto-notification-system/common/kafka"
@@ -68,7 +69,7 @@ func (c *WebSocketClient) Subscribe(userID, ticker string) error {
 		}
 	}
 
-	// remove the user for this ticker
+	// add the user for this ticker
 	err := c.redis.AddUserForTicker(ticker, userID)
 	if err != nil {
 		return err
@@ -133,6 +134,7 @@ func (c *WebSocketClient) Listen() {
 		_, message, err := c.socket.ReadMessage()
 		if err != nil {
 			c.logger.Printf("[ERROR] Failed to read message: %v", err)
+			time.Sleep(15 * time.Second)
 			continue
 		}
 		var tickerUpdate model.Ticker
