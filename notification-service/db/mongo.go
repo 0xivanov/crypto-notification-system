@@ -33,6 +33,7 @@ func NewMongo(uri, dbName, collection string, logger *log.Logger) *Mongo {
 	if err != nil {
 		logger.Fatalf("[ERROR] Failed to connect to MongoDB: %v", err)
 	}
+	logger.Println("[INFO] Connected to MongoDB")
 	return &Mongo{
 		client:     client,
 		dbName:     dbName,

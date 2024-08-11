@@ -20,7 +20,7 @@ type Consumer struct {
 func NewConsumer(brokers []string, topic, consumerGroupName string, logger *log.Logger) *Consumer {
 	config := sarama.NewConfig()
 	config.Consumer.Group.Rebalance.Strategy = sarama.NewBalanceStrategyRoundRobin()
-	config.Consumer.Offsets.Initial = sarama.OffsetNewest
+	config.Consumer.Offsets.Initial = sarama.OffsetOldest
 
 	consumerGroup, err := sarama.NewConsumerGroup(brokers, consumerGroupName, config)
 	if err != nil {
@@ -35,6 +35,7 @@ func NewConsumer(brokers []string, topic, consumerGroupName string, logger *log.
 
 func (c *Consumer) StartConsumer(handler sarama.ConsumerGroupHandler) {
 	defer c.consumerGroup.Close()
+	c.logger.Printf("[INFO] Started consumer for topic %s", c.topic)
 	for {
 		err := c.consumerGroup.Consume(context.Background(), []string{c.topic}, handler)
 		if err != nil {

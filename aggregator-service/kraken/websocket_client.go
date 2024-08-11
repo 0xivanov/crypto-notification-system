@@ -129,9 +129,15 @@ func (c *WebSocketClient) Unsubscribe(userID, ticker string) error {
 
 // Listen listens for incoming messages from the WebSocket connection
 func (c *WebSocketClient) Listen() {
+	log.Printf("[INFO] Listening for messages from WebSocket")
 	for {
 		_, message, err := c.socket.ReadMessage()
 		if err != nil {
+			if websocket.IsCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure, websocket.CloseAbnormalClosure) {
+				c.socket.Close()
+				c.logger.Fatalf("[ERROR] Websocket connection closed: %v", err)
+				return
+			}
 			c.logger.Printf("[ERROR] Failed to read message: %v", err)
 			continue
 		}

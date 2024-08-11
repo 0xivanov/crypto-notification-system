@@ -51,6 +51,7 @@ func main() {
 		DB:       0,
 	})
 	redisCache := db.NewRedisCache(redisDb, logger)
+	logger.Println("[INFO] Connected to Redis")
 
 	// create kraken client
 	krakenClient := kraken.NewWebSocketClient(logger, producer, redisCache, wsUrl)
