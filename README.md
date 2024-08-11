@@ -180,5 +180,4 @@ Supports Email and Slack notifications.
 ### TODOs
 
 1. notification-servcie: Telephone notifications
-2. aggregator-service: Graceful websocket disconnection
-3. all services: Topic partitions - BTC/? | ETH/? | etc.
+2. all services: Topic partitions - BTC/? | ETH/? | etc.
